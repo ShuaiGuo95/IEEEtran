@@ -1,0 +1,872 @@
+\documentclass[journal]{IEEEtran}
+
+\ifCLASSINFOpdf
+\else
+\fi
+
+\usepackage{amsmath}
+\usepackage{threeparttable}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{cite}
+\usepackage[noend]{algpseudocode}
+\usepackage{algorithmicx,algorithm}
+
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+\allowdisplaybreaks[4] %允许公式串页
+
+\begin{document}
+
+\title{Multiview Nonlinear Discriminant\\Structure Learning}
+
+
+\author{Michael~Shell,~\IEEEmembership{Member,~IEEE,}
+        John~Doe,~\IEEEmembership{Fellow,~OSA,}
+        and~Jane~Doe,~\IEEEmembership{Life~Fellow,~IEEE}% <-this % stops a space
+\thanks{M. Shell was with the Department
+of Electrical and Computer Engineering, Georgia Institute of Technology, Atlanta,
+GA, 30332 USA e-mail: (see http://www.michaelshell.org/contact.html).}% <-this % stops a space
+\thanks{J. Doe and J. Doe are with Anonymous University.}% <-this % stops a space
+\thanks{Manuscript received April 19, 2005; revised August 26, 2015.}}
+
+
+
+\markboth{Journal of \LaTeX\ Class Files,~Vol.~14, No.~8, August~2015}%
+{Shell \MakeLowercase{\textit{et al.}}: Bare Demo of IEEEtran.cls for IEEE Journals}
+
+
+
+\maketitle
+
+\begin{abstract}
+Multiview subspace learning (MSL) that aims to project feature representations of each view into a latent subspace shared by all views, has been widely used in many practical applications. 
+Despite the progress made, we think there are still two challenges to overcome. 
+On the one hand, most of existing MSL methods indiscriminately utilize the helpful and defective information that are intermingled in each view. 
+On the other hand, most recent methods are linear methods that could not work well when the dataset have weak linear separability. 
+In this paper, we fully exploit the useful information of each view by local preserving and discriminant reconstruction (LPDR), then get the latent subspace with multiview nonlinear discriminant structure learning (MNDSL). 
+The proposed method construct inter-view and intra-view weighted connections to explore discriminant structure and protect locality, under the complementary and uncorrelated principle. 
+To meet the requirements of large-scale applications and get projections of new samples, an out-of-sample extension is introduced after that. 
+Experiment results demonstrate the effectiveness and robustness of proposed method over other state-of-art methods. 
+
+\end{abstract}
+
+\begin{IEEEkeywords}
+Multiview subspace learning, nonlinear, locality and discriminant structure, complementary, uncorrelated, out-of-sample. 
+\end{IEEEkeywords}
+
+
+\IEEEpeerreviewmaketitle
+
+
+
+\section{Introduction}
+
+\IEEEPARstart{M}{ultiview} learning is a long-standing and important area in the fields of machine learning and patten recognition, which has been widely used in many aspects of machine learning~\cite{app1,app2,app3,app4,app5,app6}. 
+In many real-world applications, objects can be characterized by various different viewpoints. 
+For example, Internet news consists of text, images and video; images could be expressed by LBP feature~\cite{LBP}, HOG feature~\cite{HOG} or SIFT feature~\cite{SIFT}; Microsoft Kinect describes the environment with RGB view and Depth view. 
+On the one hand, multiple views could provide complementary information for data description. 
+On the other hand, multiview learning explores the consistency and complementary properties of different views to get an improved model. 
+Instead, single view is relatively insufficient to characterize the full shape of objects~\cite{singleview}, learning from a single view many not be robust and adequate. 
+The main task of multiview learning is to make full use of rich information provided by multiple views and overcome their differences, following the principles of consensus and complementary~\cite{tao_survey}. 
+
+Generally speaking, multiview learning methods largely fall into three categories~\cite{tao_survey}: 1) co-training, 2) multiple kernel learning, and 3) subspace learning. 
+As one of the most typical categories, multiview subspace learning (MSL) aims to project data of each view into a latent subspace shared by all views. 
+Existing MSL methods can be grouped into two-view learning methods and multiview learning methods, according to the maximum number of views they can work on. 
+These methods further run in supervised or unsupervised mode, based on whether class label information is exploited or not. 
+Considerations of current methods include correlation maximization~\cite{CCA,2D-CCA,KCCA,MCCA}, category discriminant information balance~\cite{CDA,DCCA,MvDA}, local neighborhood information protection~\cite{LapMCCA,MSE,MVLPP}, co-regularization based on support vector machine~\cite{SVM-2K,MLSVM,MvTSVMs}, entropy discriminant information maximization~\cite{MvMED,MED-2C,AMMED} and so on. 
+Recently, multiview subspace learning is usually associated with sparse learning~\cite{Sparse-CCA}, low-rank decomposition~\cite{xiangzhu}, manifold learning~\cite{MvML} and many other directions. 
+
+However, most of existing MSL methods have the following disadvantages. 
+First, helpful and defective information are intermingled in the multiple views, while most methods utilize them indiscriminately. 
+For example, in some cases, outliers of one view may have normal distributions in another view, fixed samples in one view may be easy to separate in another view. 
+Then the ideal strategy is to give up unique outliers of each view and refer to the view that can separate the fixed samples, following the complementary principle. 
+But most of current MSL methods do not distinguish the given information is beneficial or not, they learn from the raw data almost blindly. 
+
+Second, most of existing MSL methods are linear and explicit methods, which means they could not work well when data have weak linear separability. 
+Most methods seek for a linear transformer for each view to project the samples into the subspace. 
+Kernel extension of some MSL methods may be suitable to address the nonlinear issue, but kernel functions would also increase the complexity of calculation, and sometimes it is difficult to choose an appropriate kernel function. 
+Moreover, explicit MSL methods could get projections of new samples with the linear transformers, nonlinear MSL methods need a multiview out-of-sample extension to get projections of new samples, but few multiview out-of-sample methods were proposed. 
+This makes nonlinear MSL methods difficult to adapt to large-scale applications. 
+
+To address the challenges above, in this paper, we present a multiview nonlinear discriminant structure learning framework that is trained on preprocessed data, and introduce its out-of-sample extension. 
+The main contributions of this paper are summarized as below: 
+
+\begin{enumerate}
+\item We reconstruct the feature representations of given views with local preserving and discriminant reconstruction (LPDR) to fully explore the helpful information provided by each view. 
+LPDR minimizes distances between every sample and its within-class neighbors, as well as maximize the distances with its between-class neighbors. 
+LPDR could characterize the connection between samples, reduce the influence of outliers peculiar to each view, and extract discriminant information of each view. 
+
+\item We get the embeddings of multiple views in the subspace with multiview nonlinear discriminant structure learning (MNDSL) which nonlinearly learns a discriminant structure and maintain the local neighborhood information in the subspace. 
+MNDSL assigns a connection weight with each pair of inter-view or intra-view samples, following the principle of complementary. 
+As inter-view samples have different dimensionality of feature representations, we introduce the global weight vector to measure their distance. 
+Additionally, MNDSL impose the uncorrelated constrain that has been proved effective~\cite{MUDA,MVLPP} to further improve the performance. 
+
+\item An out-of-sample method that follows the principle of locality protection is introduced to get projections of new samples. 
+The proposed method keeps the global nonlinearity and locality protection principle of MNDSL. 
+\end{enumerate}
+
+The remainder of this paper is organized as follows. 
+Section~\ref{relatedworks} defines the common notations and reviews some related works. 
+Section~\ref{proposedmethods} introduces the formulations, optimizations of proposed methods in detail, and analyses the computation complexity. 
+Section~\ref{expressions} presents experimental results and quantitative evaluations. 
+Finally, this paper is rounded up with a conclusion in Section~\ref{conclusion}. 
+
+
+\section{Related works} \label{relatedworks}
+In this section, we briefly review some works related to this paper. 
+Numbers of multiview subspace learning methods have been proposed in recent years, 
+we categorize them into four classes according to the primary objectives of them: 
+
+\textit{Maximize the cross correlations.}
+This line of methods mainly origin from Canonical correlation analysis~\cite{CCA}, 
+a typical two-view learning method that finds two linear transforms for each view to maximize their cross correlation in the latent subspace. 
+Basing on CCA, kernel CCA~\cite{KCCA} employs kernel functions to address nonlinear projection, 
+2D CCA~\cite{2D-CCA} directly sought relations between different sets of images without getting their feature vectors, 
+sparse CCA~\cite{Sparse-CCA} minimize the number of features in both projections while maximize their correlation. 
+Partial least squares (PLS)~\cite{PLS} that shares similar objective with CCA regress samples from one view to the other, and kernel PLS~\cite{KPLS} introduces kernel functions to PLS. 
+In scenario of multiple views, many researches based on CCA were proposed as well. 
+CCA is further generalized as multiview CCA (MCCA)~\cite{MCCA} that maximize the correlation between each two views. 
+And tensor CCA (TCCA)~\cite{TCCA} analyses the high-order covariance tensor to maximize the correlations between each two views. 
+
+\textit{Balance the scatter discriminant information.}
+Scatter discriminant information includes between-class, within-class, intra-view and inter-view discriminants here. 
+Discriminative CCA (DCCA)~\cite{DCCA} and correlation discriminant analysis (CDA)~\cite{CDA} construct within-class similarity matrices and between-class similarity matrices based on CCA to separate sample pairs of different classes, while they have different formulations and constraints. 
+Multiview uncorrelated discriminant analysis (MULDA)~\cite{MULDA} characterizes DCCA by imposing an uncorrelated constraint. 
+Several methods have been proposed for scenario of multiple views. 
+Multiview discriminant analysis (MvDA)~\cite{MvDA} jointly address the multiple linear transforms by maximizing between-class variations and minimizing within-class variations in a generalized Rayleigh quotient. 
+Multiview local discrimination and canonical correlation analysis (MLDC$^2$A)~\cite{MLDC2A} makes use of correlation information, intra-view and inter-view discrimination information of paired views. 
+
+\textit{Protect the local neighborhood information.}
+Locality preserving CCA (LPCCA)~\cite{LPCCA} incorporate locality idea into CCA. 
+Laplacian MCCA (LapMCCA)~\cite{LapMCCA} incorporate the locality into MCCA and discover the global nonlinear correlations for the multiple views. 
+To preserve the locality of latent subspace, multiview spectral embedding (MSE)~\cite{MSE} regard neighborhood of a sample as a whole and project them together. 
+Basing on MCCA, graph regularized MCCA (GrMCC)~\cite{GrMCC} maximizes inter-view cumulative correlations, minimizes local intraclass scatter as well as maximizes local between-class scatter. 
+Multiview laplacian least squares (MvLLS)~\cite{MvLLS} construct a iteratively updating global weighted graph for the multiple views to measure the distance between each two samples, and maintain the distance relation in the subspace. 
+Multiview locality low-rank embedding (MvL$^2$E)~\cite{xiangzhu} aims to protect the correlations and manifold structure by adopting low-rank representations. 
+
+\textit{Co-regularization based on SVM.}
+This line of methods are usually built upon support vector machine (SVM)~\cite{SVM}. 
+The two-view learning method SVM-2K~\cite{SVM-2K} thinks that SVM could be regarded as a 1-dimensional projection followed by a thresholding, 
+and imposes the similarity between the two 1-dimensional projections got by SVMs constructed for the two views. 
+Multiview twin SVMs (MvTSVMs)~\cite{MvTSVMs} is a multiview extension of TSVMs~\cite{TSVMs}. 
+Similar to SVM-2K, MvTSVMs combines two views by imposing the similarity between the two 1-dimensional projections got by each two views. 
+Multiview laplacian SVMs (MLSVM)~\cite{MLSVM} additionally considers manifold and multiview regularization in the framework of SVM. 
+And multiview privileged SVM (PSVM-2V)~\cite{PSVM-2V} introduces privileged information to unleash the power of complementary principle. 
+
+Several generalized multiview frameworks were proposed for two-view subspace learning~\cite{GMA,GME}. 
+And recently, many subspace learning researches concentrate on feature redundancy minimization~\cite{zhou2018multiview}, reducing noise~\cite{yue2019robust} or margin consistency~\cite{MvMED,MED-2C}. 
+
+
+
+
+\section{MULTIVIEW NONLINEAR DISCRIMINANT STRUCTURE LEARNING} \label{proposedmethods}
+In this section, we present the preprocessing, formulation and optimization of multiview nonlinear discriminant structure learning (MNDSL), then introduce its out-of-sample extension. 
+Consider a multiview supervised learning problem defined on feature representations of $n$ samples from $v$ views, TABLE~\ref{notation} lists important notations in this paper. 
+Note that dimensionality may varies across the views, while the labels are identical for all of them. 
+
+We nonlinearly reconstruct the feature representations of each view with local preserving and discriminant reconstruction (LPDR) to make full use of the information provided by each view. 
+Then with the reconstructed views, we present multiview nonlinear discriminant structure learning (MNDSL) that aims to learn a discriminant structure and maintain the local neighborhood in the subspace. 
+As dimensionality of each view owns its size, a metric based on global weights is introduced. 
+After that, following the principle of maintaining distance structure, an out-of-sample extension that keeps the distance structure maintain is proposed for MNDSL to accommodate large-scale applications and get representations of new samples. 
+
+\begin{table}[!t]
+\centering
+\caption{List of Important Parameters}
+\begin{tabular}{p{2cm}p{6cm}}
+\toprule
+Notation & \hspace{1.7cm} Description \\
+\midrule
+$X_i\in \mathbb{R}^{{d_i}\times {n}}$ & feature representations of samples in $i_{th}$ view \\
+$X_{ij}\in \mathbb{R}^{d_i}$ & feature representation of $j_{th}$ sample in $X_i$ \\
+$d_i$ & dimensionality of samples in $X_i$ \\
+$n,m$ & the number of samples \\
+$c_i$ & class label of $i_{th}$ sample \\
+$c_{ij}$ & class label of $X_{ij}$ \\
+$v$ & the number of views \\
+$d$ & dimensionality of the subspace \\
+
+$t$ & maximum number of iterations \\
+$Y_i\in \mathbb{R}^{d\times n}$ & projection of $X_i$ in the subspace \\
+$Y_{iu}\in \mathbb{R}^{d}$ & projection of $X_{iu}$ in the subspace \\
+
+$W, M$ & weight graph \\
+$maxiter$ &  maximum number of iterations \\
+
+$I$ & identity matrix \\
+$tr(\cdot)$ & trace of a matrix \\
+$(\cdot)^T$ & transpose of a matrix or vector \\
+$\|\cdot \|_{2, F}$ & $\ell_2$-norm, Frobenius norm \\
+\bottomrule
+\end{tabular}
+\label{notation}
+\end{table}
+
+
+\subsection{Local Preserving and Discriminant Reconstruction}
+Most of existing subspace learning methods directly use the provided feature sets. 
+In this section, we reconstruct the features to get better category discriminant distribution with LPDR which could be considered as a preprocessing of subsequent work. 
+% With this step, we could characterize the connections between samples better and reduce the influence of outliers. 
+LPDR aims to minimize the $\ell_2$-norm distances between every sample and its $k$ nearest neighbors that have identical class labels, as well as maximize the $\ell_2$-norm distances between every sample and its $k$ nearest neighbors that have different class labels. 
+Suppose feature representation $X_i$ is reconstructed as $X'_i$, we could get the following optimization problem:
+\begin{gather}
+\min_{X'_i} \sum_{j=1}^n \sum_{l=1}^k ( \|X'_{ij}-X_{ijl}^{'W} \|_2^2 - \|X'_{ij}-X_{ijl}^{'B} \|_2^2)
+\end{gather}
+
+where $X_{ijl}^{'W}$ is one sample of the $k$ nearest neighbors of $X'_{ij}$ that have identical class labels, and $X_{ijl}^{'B}$ is one sample of $k$ nearest neighbors of $X'_{ij}$ that have different class labels. 
+In this model, we not only protect the local neighborhood of within-class samples, but also separate between-class samples. 
+This problem could also be expressed and simplified as follows:
+\begin{gather}
+\min_{X'_i} \xi (X'_i) \ s.t.\ X'_iX_i^{'T}=I \nonumber \\
+\xi(X'_i) = \sum_{j=1}^n (\| (X'_{ij}e^T-X'_i)S_j^W \|_F^2  - \|(X'_{ij}e^T-X'_i)S_j^B\|_F^2 ) \nonumber \\
+\label{xi}
+= tr( X'_i \tilde{S} X_i^{'T} ) \\ 
+\tilde{S} = \sum_{j=1}^n (\tilde{S_j^{W}} \tilde{S_j^{WT}} - \tilde{S_j^{B}} \tilde{S_j^{BT}}) \nonumber
+\end{gather}
+
+To avoid degenerate solutions, we constrain that $X'_iX_i^{'T}=I$. 
+In (\ref{xi}), $e = [1,1,\cdots, 1]^T \in \mathbb{R}^{n}$ is a column vector, $S_j^W$ and $S_j^B$ are selection matrices to select the within-class neighbors and between-class neighbors for $X'_{ij}$. 
+Specially, if $Neib_{ij}^W\in \mathbb{R}^{d_i\times k}$ denotes the $k$ nearest samples that have the same labels with $X'_{ij}$, and $Neib_{ij}^W\in \mathbb{R}^{d_i\times k} $ denotes the $k$ nearest neighbors that have different labels with $X'_{ij}$, the usages of selection matrices are formulated as follows: 
+\begin{gather}
+Neib_{ij}^W = X'_i {S_j^{W}},Neib_{ij}^B = X'_i {S_j^{B}} 
+\end{gather}
+
+The derivation of $\xi(X'_i)$ is given in APPENDIX~\ref{appendix1}. 
+Based on Ky-Fan theory~\cite{KyFan}, $X'_i$ in (\ref{xi}) has a global optimal solution. 
+Consequently, we get the presentations of features in each view after reconstruction. 
+
+
+\subsection{Multiview Nonlinear Discriminant Structure Learning} \label{MNDSLsection}
+After preprocessing with LPDR, we have fully exploited discriminant relationships and locality of each view. 
+Then we get embeddings of the views $\{Y_1,Y_2,\cdots, Y_v \}$ with MNDSL. 
+In the proposed method MNDSL, we aim to find a common latent subspace for multiple views where within-class samples stay close and between-class samples stay separate with each other. 
+
+First, we discuss the relationships of samples within views in the subspace. 
+For samples that have identical class labels, the closer the are distributed on original feature spaces, the closer they are expected to stay in the subspace. 
+And for samples that have different class labels in each view, the more dispersed they are distributed on original feature spaces, the more dispersed they are expected to stay in the subspace. 
+% This principle could be effective to take care of within-class local neighborhood information introduced in LPDR, as well as separate between-class samples. 
+In MNDSL, we assign a larger connection weight to samples that are expected to stay close in subspace, and a smaller connection weight to samples that are expected to stay separate. 
+So we could draw samples with large weights close and separate samples with small weights, by minimizing the embedding cost function below: 
+\begin{gather}
+\min_{Y_1,\cdots, Y_v} \sum_{i=1}^v \|Y_{iu}-Y_{iv} \|_2^2 W_{uv}^{ii}
+\label{withinview}
+\end{gather}
+
+where $W_{uv}^{ii}$ weights the connection between $X'_{iu}$ and $X'_{iv}$. 
+If $X'_{iu}$ and $X'_{iv}$ have identical labels, $W_{uv}^{ii}$ is defined as: 
+\begin{align}
+W_{uv}^{ii} = 
+\exp(-{{\|X'_{iu}-X'_{iv}}\|_2^2}),\ if \ c_{iu}=c_{iv} 
+\end{align}
+
+While $X'_{iu}$ and $X'_{iv}$ have different labels, $W_{uv}^{ii}$ is defined as:
+\begin{align}
+W_{uv}^{ii} = 
+\exp(-{{\|X'_{iu}-X'_{iv}}\|_2^2}),\ if \ c_{iu}\neq c_{iv} 
+\end{align}
+
+% In the two equations above, $p_1$ and $p_2$ are constrained that $p_1>p_2$ to make within-class samples have smaller weights than between-class samples. 
+Besides, following the principle of complementarity, we replace within-class weights that smaller than hyper-parameter $\varepsilon_1$ with the maximum of corresponding weights of all views. 
+This could be expressed as follows: 
+\begin{align}
+\begin{split}
+W_{uv}^{ii}& = \max\{W_{uv}^{11}, W_{uv}^{22}, \cdots, W_{uv}^{vv} \}\\ 
+&if\ W_{uv}^{ii} < \varepsilon_1\ and\ c_{iu}=c_{iv}
+\end{split}
+\end{align}
+
+Within-class weights no smaller than $\varepsilon_1$ are remained to protect locality information. 
+Similarly, between-class weights that larger than $\varepsilon_2$ are replaced by the minimum of corresponding weights of all views: 
+\begin{align}
+\begin{split}
+W_{uv}^{ii}& = \min\{W_{uv}^{11}, W_{uv}^{22}, \cdots, W_{uv}^{vv} \}\\
+&if\ W_{uv}^{ii} > \varepsilon_2\ and\ c_{iu}\neq c_{iv}
+\end{split}
+\end{align}
+
+These equations are effective to describe the connections of samples in the subspace for all views respectively. 
+
+Second, we discuss relationships of samples between views in the subspace. 
+For inter-view samples, we would also like to get their embeddings reasonably, referring to the connection relationships and category discriminant information: 
+\begin{gather}
+\min_{Y_1,\cdots, Y_v} \sum_{i,j=1,i\neq j}^v \|Y_{iu}-Y_{jv} \|_2^2 W_{uv}^{ij}
+\label{betweenview}
+\end{gather}
+
+But dimensionality of feature set may varies across all views, which makes it difficult to characterize the relationship between inter-view samples. 
+Besides, inter-view samples have no natural locality information, while they still need quantitative weights to measure their connections in the subspace, and they are encouraged to cluster according to their class labels. 
+To address the two issues above, we propose a novel metric to measure the connection relationships of inter-view samples in the subspace. 
+
+For each pair of inter-view samples such as $X'_{iu}$ and $X'_{jv}$, we construct two global weight vectors $GW_{iu}\in \mathbb{R}^n$ and $GW_{jv}\in \mathbb{R}^n$ which are the $u_{th}$ row and $v_{th}$ row of $W^{ii}$ and $W^{jj}$ respectively. 
+Then we utilize $GW_{iu},GW_{jv}$ to measure the weight agreement of $X'_{iu}$ and $X'_{jv}$ in the subspace similarly: 
+\begin{align}
+\begin{split}
+W_{uv}^{ij}& = \exp(-{{\|GW_{iu}-GW_{jv}}\|_2^2})\\ 
+&\ if \ (c_{iu}=c_{jv},i\neq j) \\
+W_{uv}^{ij}& = \exp(-{{\|GW_{iu}-GW_{jv}}\|_2^2})\\ 
+&\ if \ (c_{iu}\neq c_{jv},i\neq j)
+\end{split}
+\end{align}
+
+where the global weight vectors state the contribution of $X'_{iu}$ and $X'_{jv}$ in the embedding of each view. 
+The more similar $GW_{iu}$ and $GW_{jv}$ are, the closer $X'_{iu}$ and $X'_{jv}$ are expected to stay in the subspace. 
+Combining (\ref{withinview}) and (\ref{betweenview}), we could get: 
+\begin{gather}
+\min_{Y_1,\cdots, Y_v} \sum_{i,j=1}^v \|Y_{iu}-Y_{jv} \|_2^2 W_{uv}^{ij}
+\label{eq11}
+\end{gather}
+
+where $W_{uv}^{ij}$ is defined accordingly. 
+To avoid degenerate solutions, we impose the embedding vectors to have weighted unit covariance. 
+And we add a uncorrelated constrain that has been proved effective~\cite{MUDA,MVLPP} in many applications by make the projections have minimum redundancy. 
+The uncorrelated principle could be regarded as another form of constrain that $Y_1 D_{11} Y_1^T=I, Y_2 D_{22} Y_2^T=I, \cdots, Y_v D_{vv} Y_v^T=I$ in this paper. 
+With simple algebraic formulation of (\ref{eq11}), we get the following minimization problem for MNDSL finally: 
+\begin{align}
+\begin{split}
+\min_{Y_1,\cdots, Y_v} \sum_{i,j=1}^v& tr(Y_i L_{ij} Y_j^{T}) \\
+s.t.\ Y_i^k& D_{ii} Y_i^{kT} = 1 \\
+Y_i^k  D_{ii} Y_i^{rT} = 0, &r=1,\cdots, k-1
+\label{MNDSL}
+\end{split}
+\end{align}
+
+where row vector $Y_i^k\in \mathbb{R}^{n}$ is the $k_{th}$ projection of $X'_i$ in the subspace. 
+Suppose that $W_{uv}^{ij}$ is in the $u_{th}$ row and $v_{th}$ column of the matrix $W^{ij}$, $L_{ij}$ is then defined as the Laplacian matrix~\cite{LE} that corresponds to $W^{ij}$, and $D_{ii}$ is a diagonal matrix that meet $D_{ii}=L_{ii} + W^{ii}$. 
+Note that $L_{ij}$, $W^{ij}$ and $D_{ii}$ are all symmetric matrices. 
+
+
+\subsection{Optimization and Solution}
+When $k=1$, for the main projection of each view $\{Y_1^1, Y_2^1, \cdots, Y_v^1 \}$, we could formulate that: 
+\begin{align}
+\begin{split}
+\min_{Y_1^1,\cdots,Y_v^1} \sum_{i,j=1}^v &Y_i^1 L_{ij} Y_j^{1T} \\
+s.t.\ Y_i^1D_{ii}&Y_i^{1T}=1 
+\label{mainprojection}
+\end{split}
+\end{align}
+
+where only the first projection of each view is considered. 
+Using the Lagrangian multiplier method, we could get: 
+\begin{align}
+\begin{split}
+\left[
+\begin{array}{ccc}
+Y_1^1 & \cdots & Y_v^1 \\
+\end{array}
+\right]
+\left[
+\begin{array}{ccc}
+L_{11} & \cdots & L_{1v} \\
+\vdots & \ddots & \vdots \\
+L_{v1} & \cdots &L_{vv} \\
+\end{array}
+\right]= \\
+\left[
+\begin{array}{ccc}
+\lambda_1Y_1^1 & \cdots & \lambda_vY_v^1 \\
+\end{array}
+\right]
+\left[
+\begin{array}{ccc}
+D_{ii} & \  & \  \\
+\ & \ddots & \ \\
+\ & \ & D_{vv} \\
+\end{array}
+\right]
+\end{split}
+\end{align}
+
+which is a generalized multivariate eigenvalue problem, $\{\lambda_1, \lambda_2, \cdots, \lambda_v\}$ are the Lagrange multipliers that meet $\lambda_i\geq 0$. 
+This problem could be simplified to: 
+\begin{gather}
+[Y_1^1 \cdots Y_v^1] L = [\lambda_1Y_1^1  \cdots  \lambda_vY_v^1] D
+\end{gather}
+
+Horst's alternation algorithm~\cite{Horst} that is scalable and works well in practice is employed to solve this problem, as shown in Algorithm~\ref{Horst}. 
+Because (\ref{mainprojection}) is a convex problem, Horst's algorithm is guaranteed to converge to globally optimal solution. 
+
+\begin{algorithm}[t]
+\caption{Horst's algorithm to get main projections} 
+\label{Horst}
+\hspace*{0.02in} {\bf Input:}
+$\{W^{11}, \cdots, W^{ij}, \cdots, W^{vv}\}$ \\
+\hspace*{0.02in} {\bf Output:} 
+$Y^1 = [Y_1^1, Y_2^1, \cdots, Y_v^1]$
+\begin{algorithmic}[1]
+\State Get $L_{11}, \cdots, L_{vv}$ and $D_{11}, \cdots, D_{vv}$ respectively. 
+\State $Y^1\gets$  transpose of eigenvector associated with the smallest eigenvalue of $D^{-1}L$.
+\For{$iter = 1$ to $t$} 
+\State $Y^1 = [Y_1^1, Y_2^1, \cdots, Y_v^1] = Y^1 L D^{-1}$
+\For{$i=1$ to $v$}
+\State $Y_i^1\gets \frac{Y_i^1}{\|Y_i^1\|}$
+\EndFor
+\State end for
+\EndFor
+\State end for
+\State \Return $Y^1 = [Y_1^1, Y_2^1, \cdots, Y_v^1]$
+\end{algorithmic}
+\end{algorithm}
+
+After getting the main projection, we introduce a method based on mathematical induction to get other projections of each view and approximate optimal solution. 
+Suppose we have got the first $k-1\ (k>1)$ projections for each view, for the $k_{th}$ projection $\{Y_1^k, Y_2^k, \cdots, Y_v^k \}$, we could formulate this equation according to (\ref{MNDSL}) 
+\begin{align}
+\begin{split}
+\min_{Y_1,\cdots, Y_v} \sum_{i,j=1}^v& Y_i^k L_{ij} Y_j^{kT} \\
+s.t.\ Y_i^k& D_{ii} Y_i^{kT} = 1 \\
+Y_i^k  D_{ii} Y_i^{rT} = 0, &r=1,\cdots, k-1
+\end{split}
+\label{eq16}
+\end{align}
+
+In order to obtain a closed-form solution, the constraint that $Y_i^k D_{ii} Y_i^{kT} = 1$ is transformed into a single constraint $\sum_{i=1}^v Y_i^k D_{ii} Y_i^{kT} = 1$, which will be discussed later in this section. 
+We could have
+\begin{align}
+\begin{split}
+\min_{Y_1,\cdots, Y_v} \sum_{i,j=1}^v& Y_i^k L_{ij} Y_j^{kT} \\
+s.t.\ \sum_{i=1}^vY_i^k& D_{ii} Y_i^{kT} = 1 \\
+Y_i^k  D_{ii} Y_i^{rT} = 0, &r=1,\cdots, k-1
+\label{kprojection}
+\end{split}
+\end{align}
+
+We construct the Lagrangian function of (\ref{kprojection}) first: 
+\begin{align}
+\begin{split}
+L(Y_i^k, \lambda,\mu_{ir})&=\sum_{i,j=1}^v Y_i^k{L_{ij}}Y_j^{kT} \\
+-\lambda \sum_{i=1}^v (Y_i^k{D_{ii}}Y_i^{kT}&-1) 
+-\sum_{i=1}^v \sum_{r=1}^{k-1} \mu_{ir}Y_i^kD_{ii} Y_i^{rT}
+\end{split}
+\end{align}
+
+where $\lambda, \mu_{ir}$ are Lagrangian multipliers. 
+Taking its derivative with respect to $Y_i^k$ and making the derivative to be zero, we have
+\begin{gather}
+\frac{\partial L(Y_i^k, \lambda, \mu_{ir})}{\partial Y_i^k} = 2(
+\sum_{j=1}^v Y_j^{k}{L_{ij}}-
+\lambda Y_i^k{D_{ii}}
+-\sum_{r=1}^{k-1}\mu_{ir}Y_i^r{D_{ii}})=0 \nonumber \\
+\sum_{j=1}^v Y_j^{k}{L_{ij}}=
+\lambda Y_i^k{D_{ii}}
++\sum_{r=1}^{k-1}\mu_{ir}Y_i^r{D_{ii}}
+\label{original}
+\end{gather}
+
+Then we multiply the right-hand of (\ref{original}) with $Y_i^{kT}$.
+Considering that $Y_i^k{D_{ii}}Y_i^{kT}=1$ and $Y_i^r{D_{ii}}Y_i^k=0\ (r=1,\cdots, k-1)$, we could get 
+\begin{gather}
+\sum_{j=1}^v Y_j^{k}{L_{ij}}Y_i^{kT}=
+\lambda Y_i^k{D_{ii}} Y_i^{kT} = \lambda
+\label{lambda}
+\end{gather}
+
+As $i$ varies from $1$ to $v$, we would have got $v$ equations correspondingly. 
+Accumulating the $v$ equations, we could have
+\begin{gather}
+\sum_{i=1}^v \sum_{j=1}^v Y_j^{k}{L_{ij}}Y_i^{kT}
+=\sum_{i,j=1}^v Y_i^{k}{L_{ij}}Y_j^{kT}=v\lambda 
+\end{gather}
+
+which means $v\lambda$ is equal to the value of objective function in (\ref{kprojection}). 
+Similarly, multiplying the right-hand of (\ref{original}) with $Y_i^{zT}, (z=1, \cdots, k-1)$, we could get 
+\begin{align}
+\begin{split}
+\sum_{j=1}^v Y_j^{k}{L_{ij}}Y_i^{zT}=&
+\sum_{r=1}^{k-1}\mu_{ir}Y_i^r{D_{ii}} Y_i^{zT} \\
+(z=1,&\cdots, k-1)
+\end{split}
+\end{align}
+
+which is transformed as follows 
+\begin{align}
+\begin{split}
+\sum_{j=1}^v Y_j^{k}{L_{ij}} 
+&\left[
+\begin{array}{c}
+Y_i^{1}  \\
+Y_i^{2} \\
+\vdots \\
+Y_i^{(k-1)}
+\end{array}
+\right]^T= \\
+\left[
+\begin{array}{c}
+\mu_{i1} \\
+\mu_{i2} \\
+\vdots \\
+\mu_{i(k-1)}
+\end{array}
+\right]^T
+&\left[
+\begin{array}{c}
+Y_i^{1}  \\
+Y_i^{2} \\
+\vdots \\
+Y_i^{(k-1)}
+\end{array}
+\right]
+{D_{ii}}
+\left[
+\begin{array}{c}
+Y_i^{1}  \\
+Y_i^{2} \\
+\vdots \\
+Y_i^{(k-1)}
+\end{array}
+\right]^T
+\label{eq3}
+\end{split}
+\end{align}
+
+Let
+\begin{align}
+\begin{split}
+\mu_i &= [\mu_{i1}, \mu_{i2}, \cdots, \mu_{i(k-1)} ]\\
+G_i& = [Y_i^{1T}, Y_i^{2T}, \cdots, Y_i^{(k-1)T}] 
+\end{split}
+\end{align}
+
+so (\ref{eq3}) could be expressed as
+\begin{gather}
+\sum_{j=1}^v Y_j^{k}{L_{ij}} G_i=\mu_iG_i^T{D_{ii}}G_i
+\end{gather}
+
+Then we obtain
+\begin{gather}
+\mu_i=(\sum_{j=1}^v Y_j^{k}{L_{ij}} G_i)(G_i^T{D_{ii}}G_i)^{-1}
+\label{mui}
+\end{gather}
+
+With expressions of $\mu_i$ and $G_i$, (\ref{original}) could be expressed as
+\begin{gather}
+\sum_{j=1}^v Y_j^{k}{L_{ij}}=\lambda  Y_i^k{D_{ii}}+\mu_iG_i^T{D_{ii}}
+\end{gather}
+
+Substituting (\ref{mui}) into this equation, we could get
+\begin{gather}
+\lambda Y_i^k{D_{ii}}=\sum_{j=1}^v Y_j^{k}{L_{ij}}-
+(\sum_{j=1}^v Y_j^{k}{L_{ij}} G_i)(G_i^T{D_{ii}}G_i)^{-1}G_i^T{D_{ii}} \nonumber \\
+\label{finalpro}
+=\sum_{j=1}^v Y_j^{k}{L_{ij}}-
+(\sum_{j=1}^v Y_j^{k}{L_{ij}}) G_i(G_i^T{D_{ii}}G_i)^{-1}G_i^T{D_{ii}} \\
+= (\sum_{j=1}^v Y_j^{k}{L_{ij}})[I-G_i(G_i^T{D_{ii}}G_i)^{-1}G_i^T{D_{ii}} ] \nonumber
+\end{gather}
+
+Let
+\begin{gather}
+P_i=I-G_i(G_i^T{D_{ii}}G_i)^{-1}G_i^T{D_{ii}} 
+\label{pi}
+\end{gather}
+
+Similarly, substituting (\ref{pi}) into (\ref{finalpro}), we could get
+\begin{gather}
+\lambda Y_i^k{D_{ii}}= (\sum_{j=1}^v Y_j^{k}{L_{ij}})P_i
+\end{gather}
+
+Then we address the final generalized eigenvalue solution
+\begin{gather}
+\label{final}
+\left[
+\begin{array}{ccc}
+Y_1^{k}  &\cdots &Y_v^{k}
+\end{array}
+\right]
+\left[
+\begin{array}{ccc}
+L_{11}  &\cdots & L_{1v} \\
+\vdots & \ddots & \vdots  \\
+L_{v1} & \cdots & L_{vv} \\
+\end{array}
+\right]
+\left[
+\begin{array}{ccc}
+P_1  &  &  \\
+ & \ddots &  \\
+ &  & P_v \\
+\end{array}
+\right] \\
+=\lambda 
+\left[
+\begin{array}{ccc}
+Y_1^{k}  &\cdots &Y_v^{k}
+\end{array}
+\right]
+\left[
+\begin{array}{ccc} 
+D_{11}  &  & \\
+ & \ddots &  \\
+ &  &  D_{vv} \\
+\end{array}
+\right] \nonumber
+\end{gather}
+
+In this equation, $G_i$ that contains the first $k-1$ projections is given as assumed. 
+Because $v\lambda$ is equal to the value of objective function in (\ref{kprojection}), to minimize the objective function, $\{Y_1^k, Y_2^k, \cdots, Y_v^k \}$ should form the eigenvector that corresponds to minimum eigenvalue of (\ref{final}). 
+As we have relaxed the constraint earlier, $Y_i^k$ is resized to meet $Y_i^k D_{ii} Y_i^{kT}=1$: 
+\begin{gather}
+Y_i^k \gets \frac{Y_i^k}{\sqrt{Y_i^k D_{ii} Y_i^{kT}}}
+\end{gather}
+
+Note that this is an approximate solution to (\ref{eq16}). 
+With new computed $Y_i^k$, $G_i$ and $P_i$ is updated to get $Y_i^{k+1}$ again. 
+This process is repeated until all projection vectors on the subspace are computed, as shown in Algorithm~\ref{otherprojections}. 
+\begin{algorithm}[t]
+\caption{MNDSL to get other projections} 
+\label{otherprojections}
+\hspace*{0.02in} {\bf Input:}
+$\{L_{11}, \cdots, L_{vv}\}$, $\{D_{11}, \cdots, D_{vv}\}$ and $\{Y_1^1, \cdots, Y_v^1\}$. \\
+\hspace*{0.02in} {\bf Output:} 
+$Y_1, \cdots, Y_v$
+\begin{algorithmic}[1]
+\State $G_1=[Y_1^{1T}], \cdots, G_v=[Y_v^{1T}]$
+% \State $Y_1=[Y_1^1], \cdots, Y_v=[Y_v^1]$
+\State $P_1, \cdots, P_v$ are initialized using (\ref{pi}).
+\For{$k = 2$ to $d$} 
+\State $\{Y_1^{k}, \cdots, Y_v^{k}\}$ are computed using (\ref{final}).
+\For{$i=1$ to $v$}
+\State $Y_i^k \gets \frac{Y_i^k}{\sqrt{Y_i^k D_{ii} Y_i^{kT}}}$
+\EndFor
+\State end for
+\State Add $Y_i^k$ to the last column of $G_i$.
+\State $P_i$ is updated using (\ref{pi}).
+\EndFor
+\State end for
+\State $Y_1=G_1^T, \cdots, Y_v=G_v^T$
+\State \Return $Y_1, \cdots, Y_v$
+\end{algorithmic}
+\end{algorithm}
+
+
+\subsection{MNDSL with Iterative Optimization}
+As introduced above, MNDSL is an approximate solution but not the global optimal solution. 
+To get the global optimal solution, we extend MNDSL to a more complex model MNDSL-It by using iterative optimization. 
+If the constraints are not relaxed in (\ref{eq16}), we could get the following equation after similar steps: 
+\begin{gather}
+\sum_{j=1}^v Y_j^{k}{L_{ij}}Y_i^{kT}=
+\lambda_i Y_i^k{D_{ii}} Y_i^{kT} = \lambda_i
+\end{gather}
+
+where $\lambda_i$ is the Lagrangian multiplier. 
+As $i$ varies from $1$ to $v$, accumulate the $v$ equations: 
+\begin{gather}
+\sum_{i,j=1}^v Y_i^{k}{L_{ij}}Y_j^{kT}=\sum_{i=1}^v\lambda_i
+\end{gather}
+
+which means the sum of Lagrangian multipliers is equal to the value of objective function in (\ref{kprojection}). 
+Then we could also get:
+\begin{gather}
+\left[
+\begin{array}{ccc}
+Y_1^{k}  &\cdots &Y_v^{k}
+\end{array}
+\right]
+\left[
+\begin{array}{ccc}
+L_{11}  &\cdots & L_{1v} \\
+\vdots & \ddots & \vdots  \\
+L_{v1} & \cdots & L_{vv} \\
+\end{array}
+\right]
+\left[
+\begin{array}{ccc}
+P_1  &  &  \\
+ & \ddots &  \\
+ &  & P_v \\
+\end{array}
+\right] \\
+=\left[
+\begin{array}{ccc}
+\lambda_1 Y_1^{k}  &\cdots & \lambda_v Y_v^{k}
+\end{array}
+\right]
+\left[
+\begin{array}{ccc} 
+D_{11}  &  & \\
+ & \ddots &  \\
+ &  &  D_{vv} \\
+\end{array}
+\right] \nonumber
+\end{gather}
+
+This problem could be simplified to: 
+\begin{gather}
+[Y_1^k \cdots Y_v^k] L P = [\lambda_1Y_1^k \cdots \lambda_vY_v^k] D
+\end{gather}
+
+which is a generalized eigenvalue problem that could be solved by Horst's algorithm. 
+We would have to deal with a generalized eigenvalue problem to get each projection of the views, as Algorithm~\ref{MNDSL-It} shows. 
+\begin{algorithm}[t]
+\caption{MNDSL-It to get other projections} 
+\label{MNDSL-It}
+\hspace*{0.02in} {\bf Input:}
+$\{L_{11}, \cdots, L_{vv}\}$, $\{D_{11}, \cdots, D_{vv}\}$ and $\{Y_1^1, \cdots, Y_v^1\}$. \\
+\hspace*{0.02in} {\bf Output:} 
+$Y_1, \cdots, Y_v$
+\begin{algorithmic}[1]
+\State $G_1=[Y_1^{1T}], \cdots, G_v=[Y_v^{1T}]$
+% \State $Y_1=[Y_1^1], \cdots, Y_v=[Y_v^1]$
+\State $P_1, \cdots, P_v$ are initialized using (\ref{pi}).
+\For{$k = 2$ to $d$} 
+\State $Y^k\gets$  transpose of eigenvector associated with the smallest eigenvalue of $D^{-1}P^TL$. 
+\For{$t = 1$ to $t$}
+\State $Y^k=[Y_1^k, Y_2^k, \cdots, Y_v^k] = Y^1 LP D^{-1}$.
+\For{$i=1$ to $v$}
+\State $Y_i^k \gets \frac{Y_i^k}{\sqrt{Y_i^k D_{ii} Y_i^{kT}}}$
+\EndFor
+\State end for
+\EndFor
+\State end for
+\State Add $Y_i^k$ to the last column of $G_i$.
+\State $P_i$ is updated using (\ref{pi}).
+\EndFor
+\State end for
+\State $Y_1=G_1^T, \cdots, Y_v=G_v^T$
+\State \Return $Y_1, \cdots, Y_v$
+\end{algorithmic}
+\end{algorithm}
+
+
+
+\subsection{Out-of-Sample Extension} 
+As a nonlinear and inexplicit method that utilizes class label information in the training process, MNDSL could only get the projections of training sets of the views. 
+To adapt to large-scale applications, we introduce an out-of-sample extension for MNDSL to get projections of new samples in the subspace. 
+The proposed method keeps the global nonlinearity of MNDSL from the local linear fits, along with the thinking of nonlinear learning. 
+
+Suppose that we have got $\{Y_1, Y_2, \cdots, Y_v\}$ for $\{X_1, X_2, \cdots, X_v\}$ using MNDSL, given feature representations of $m$ new samples from $v$ views $\{x_1, x_2, \cdots, x_v \}$, out-of-sample extension aims to find projections in the subspace $\{y_1, y_2, \cdots, y_v \}$ for these new samples, where $x_i\in \mathbb{R}^{d_i\times m}, y_i\in \mathbb{R}^{d\times m}$. 
+We introduce two basic ideas of our out-of-sample method. 
+
+On the one hand, following the principle of locality protection, we characterize the within-view locality information of the new samples. 
+We find $k$-nearest neighbors for $x_{ia}$ in $X'_i$ at first, $x_{ia}$ is the $a_{th}$ sample in $x_i$. 
+Then we aim to get a linear confidence vector $w_{ia}=[w_{ia1}, \cdots, w_{iak}]$, and $\sum_{l=1}^k w_{ial} x_{ia}$ is expected to be close to weighted sum of its $k$-nearest neighbors, where $w_{ial}$ indicates the confidence of the $l_{th}$ neighbor $x_{ia}$: 
+\begin{align}
+\begin{split}
+& \min_{w_1,\cdot, w_v} f_1(w) \\
+f_1(w)=\sum_{i=1}^v& \sum_{a=1}^m \|\sum_{l=1}^k w_{ial}(x_{ia}-x_{ial}) \|_2^2 \\
+=\sum_{i=1}^v& \sum_{a=1}^m w_{ia} \tilde{x}_{ia}^T \tilde{x}_{ia}w_{ia}^T 
+\label{f_1}
+\end{split}
+\end{align}
+
+where $\tilde{x}_{ia}=[x_{ia}-x_{ia1}, x_{ia}-x_{ia2}, \cdots, x_{ia}-x_{iak}], w_{ia}=[w_{ia1}, w_{ia2}, \cdots, w_{iak}]$. 
+Additionally, we continue to use the global weight vector introduced in~\ref{MNDSLsection} to measure the distance $M_{ab}^{ij}$ between $x_{ia}$ and $x_{jb}$. The closer $x_{ia}$ and $x_{jb}$ are, the closer they are expected to stay in the subspace: 
+% Note that $x_{ia}$ and $x_{jb}$ have identical class label, as they are representations of the same sample in different views. 
+\begin{align}
+\begin{split}
+M_{ab}^{ij} = \exp(-{{\|GW_{ia}-GW_{jb}}\|_2^2})\ &if \ (c_{ia} = c_{jb}) \\
+M_{ab}^{ij} = \exp(-{{\|GW_{ia}-GW_{jb}}\|_2^2})\ &if \ (c_{ia}\neq c_{jb}) 
+\end{split}
+\end{align}
+
+On the other hand, as MNDSL protects locality well, we maintain the between-view linear confidence relationship of new samples in the subspace. 
+In other words, $\sum_{l=1}^k w_{ial}x_{ial} $ is considered equal to $ \alpha_{ia} x_{ia}$, 
+% where $y_{ial}$ is projection of $x_{ial}$ in the subspace, 
+and $\alpha_{ia}=\sum_{l=1}^v w_{ial}$. 
+We could formulate that: 
+\begin{align}
+\begin{split}
+&\min_{w_1,\cdots, w_v} f_2(w) \\
+f_2(w) = \sum_{i\neq j}^v \sum_{a,b=1}^m \| \frac{1}{\alpha_{ia}} \sum_{l=1}^k& w_{ial}x_{ial}-\frac{1}{\alpha_{jb}}\sum_{l=1}^k w_{jbl}x_{jbl} \|_2^2M_{ab}^{ij} \\
+=\sum_{i\neq j}^v \sum_{a,b=1}^m \|x_{ia}-&x_{jb} \|_2^2M_{ab}^{ij} = \sum_{i\neq j}^v tr(x_i M^{ij} x_j^T) \\
+=\sum_{i\neq j}^v&L_{ij} w_i\tilde{x}_i^T\tilde{x}_jw_j^T 
+\end{split}
+\label{f_2}
+\end{align}
+
+In (\ref{f_2}), $\tilde{x}_i=[x_i-x_{i1}, x_i-x_{i2}, \cdots, x_i-x_{ik}]$, $M_{ij}$ and $L_{ij}$ are the value on $i_{th}$ row and $j_{th}$ column of $m$ and $L$ respectively, $L$ is the Laplacian matrix that corresponds to $M$. 
+Combining (\ref{f_1}) and (\ref{f_2}), we could get 
+\begin{align}
+\begin{split}
+&\qquad \quad \min_{w_1, \cdots, w_v} f(w) \\
+&f(w)=\sum_{i,j=1}^v {L_{ij}} w_iQ_i^TQ_jw_j^T \\
+=&\sum_{i,j=1}^v {L_{ij}} A_i^TA_j =tr(A{L}A^T) \\
+&\qquad \quad s.t.\ AA^T=I
+\end{split}
+\end{align}
+
+When $i\neq j$, $Q_i,Q_j$ are the same as $\tilde{y}_i, \tilde{y}_j$. 
+When $i=j$, $Qi$ is got by Cholesky decomposition of $\tilde{y}_i^T\tilde{y}_i + (\tilde{x}_i^T \tilde{x}_i)/L_{ii}$, which is a symmetric matrix. 
+The $i_{th}$ column of $A$ is denoted by $A_i$ that meets $A_i=Q_iw_i^T$. 
+The constrain $AA^T=I$ is introduced to avoid degenerate solutions. 
+Using Lagrange multiplier method, we could get $A$ by solving the following generalized eigenvalue problem: 
+\begin{gather}
+A{L}=\lambda A
+\end{gather}
+
+where $\lambda$ is a Lagrange multiplier. 
+Then $\{w_1,\cdots, w_v \}$ are computed after getting $A$, as $A_i=Q_iw_i^T$. 
+Finally, $y_i$ is give by
+\begin{gather}
+y_i = \frac{\sum_{l=1}^k w_{il}y_{il} }{\alpha_i }
+\end{gather}
+
+
+\subsection{Complexity Analysis}
+To preprocess feature sets of all views, LPDR needs a time complexity of $O((vn)^3)$. 
+Time complexity of MNDSL is $O((t+d-1)(vn)^3)$, dominated by complexity of Algorithm \ref{Horst} and Algorithm \ref{otherprojections}. 
+Time complexity of MNDSL-It is $O(td(vn)^3)$. 
+Time complexity of the out-of-sample extension is $O(v^3)$. 
+
+
+\section{Experiments} \label{expressions}
+
+
+
+
+\section{Conclusion} \label{conclusion}
+In this paper, we preprocess multiview data with local preserving and discriminant reconstruction to fully exploit the useful information, then get the latent subspace by the multiview nonlinear discriminant structure learning (MNDSL). 
+The proposed nonlinear MSL method follows complementary and uncorrelated principle to protect local neighborhood information and exploit discriminant structure of multiple views. 
+Weighted connections are introduced to characterize the distances of samples in the subspace. 
+As dimensionality varies between views, a metric based on global vector is used to construct connection weights between inter-view samples. 
+After that, an out-of-sample method is introduce to get projections of new samples. 
+Extensive experiments verified the effectiveness and robustness of the proposed method. 
+In the future, we will work to reduce computational complexity and apply MNDSL to more tasks. 
+
+\appendices
+\section{The derivation of (\ref{xi})} \label{appendix1}
+The function of reconstructed feature representations $\xi(X'_i)$ is reformulated as follows
+\begin{align*} % \nonumber
+\xi(X'_i) =& \sum_{j=1}^n (\| (X'_{ij}e^T-X'_i)S_j^W \|_F^2 -\delta \|(X'_{ij}e^T-X'_i)S_j^B\|_F^2 ) \\
+=& \sum_{j=1}^n ( \| X'_i(t_je^T-I)S_j^W \|_F^2  -\delta \|X'_i(t_je^T-I)S_j^B \|_F^2 ) \\
+=& \sum_{j=1}^n ( \| X'_i\tilde{S_j^W} \|_F^2  -\delta \| X'_i\tilde{S_j^B} \|_F^2 ) \\
+=& \sum_{j=1}^n \sum_{l=1}^{d_i} ( X_i^{'l}\tilde{S_j^{W}} \tilde{S_j^{WT}} X_i^{'lT} -\delta X_i^{'l}\tilde{S_j^{B}} \tilde{S_j^{BT}} X_i^{'lT} ) \\
+=& \sum_{l=1}^{d_i} ( X_i^{'l} \tilde{S^B}X_i^{'lT} -\delta X_i^{'l} \tilde{S^W}X_i^{'lT} ) \\
+=& tr( X'_i (\tilde{S^B}-\delta \tilde{S^W}) X_i^{'T} ) \\
+=& tr( X'_i \tilde{S} X_i^{'T} ) \\
+\end{align*}
+
+where $t_j\in \mathbb{R}^{n} $ is s column vector that selects the $j_{th}$ sample in $X'_i$, $X'_{ij}=X'_i t_j$, $X_i^{'l}$ is the $l_{th}$ row of $X'_i$ which indicates features of the $l_{th}$ dimension. 
+
+\section{}
+Appendix two text goes here.
+
+
+\section*{Acknowledgment}
+
+
+The authors would like to thank...
+
+
+\ifCLASSOPTIONcaptionsoff
+  \newpage
+\fi
+
+
+\bibliographystyle{IEEEtran}
+\bibliography{IEEEabrv,bibfile}
+
+
+
+
+%\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{mshell}}]{Michael Shell}
+% or if you just want to reserve a space for a photo:
+
+\begin{IEEEbiography}{Michael Shell}
+Biography text here.
+\end{IEEEbiography}
+
+
+
+
+% that's all folks
+\end{document}
+
+
